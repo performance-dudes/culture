@@ -9,6 +9,20 @@ signal:
   enabled: false
   # recipients configured per-person in their Claude memory, not here
 
+# Heartbeat — automated periodic check-in
+heartbeat:
+  enabled: true
+  interval: "2h"
+  silence_threshold: "nothing meaningful"  # skip if nothing to report
+
+# GitHub observer
+observer:
+  enabled: true
+  scan_prs: true
+  scan_issues: true
+  scan_discussions: false  # enable if repo uses GitHub Discussions
+  lookback_days: 7  # default scan window for /culture:observe
+
 # Feedback types enabled for this repo
 feedback_types:
   - growth-edge
