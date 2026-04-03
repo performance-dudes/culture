@@ -1,0 +1,21 @@
+# Culture Engine — Per-Repo Configuration
+enabled: true
+
+# Feedback attribution default: anonymous | public
+default_attribution: anonymous
+
+# Signal notifications (optional, per-person)
+signal:
+  enabled: false
+  # recipients configured per-person in their Claude memory, not here
+
+# Feedback types enabled for this repo
+feedback_types:
+  - growth-edge
+  - strength
+  - impact
+  - micro-adjustment
+  - reflection
+  - praise
+  - critique
+  - observation
