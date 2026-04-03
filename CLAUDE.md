@@ -14,11 +14,15 @@ AI-moderated team culture: feedback, coaching, reflection, and growth — stored
 
 - `/culture:feedback` – Express feedback (anonymous or public), always moderated by Claude
 - `/culture:reflect` – Private reflection session (local only, never shared)
+- `/culture:observe` – Scan GitHub activity (PRs, issues) for culture signals
+- `/culture:heartbeat` – Periodic automated check-in (runs via cron every ~2h)
+- `/culture:signal-setup` – Configure optional Signal notifications per person
 
 ## Agents
 
 - `@coach` – Personal coaching: weaves feedback into work sessions, delivers via Signal (optional)
 - `@moderator` – Filters and reformulates feedback before it reaches `culture/`
+- `@observer` – Scans GitHub activity for culture signals (PR tone, issue response times, collaboration patterns)
 
 ## Shared State
 
@@ -27,6 +31,12 @@ This plugin reads and writes `culture/` folders in target repos:
 - **Org repo** (named after GitHub org): org-wide culture
 - **Per-repo**: repo-specific feedback, opt-in via `culture/.config.yaml`
 - Single-repo projects: `culture/` in that repo directly
+
+## Automation
+
+- **Heartbeat**: every ~2h via cron, scans GitHub activity and delivers coaching nudges
+- **Signal**: optional per-person coaching channel via `signal-cli`
+- **Post-session**: analyzes work sessions for culture patterns (stored in Claude memory, private)
 
 ## Language
 
