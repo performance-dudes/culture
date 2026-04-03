@@ -17,6 +17,10 @@ AI-moderated team culture: feedback, coaching, reflection, and growth — stored
 - `/culture:observe` – Scan GitHub activity (PRs, issues) for culture signals
 - `/culture:heartbeat` – Periodic automated check-in (runs via cron every ~2h)
 - `/culture:signal-setup` – Configure optional Signal notifications per person
+- `/culture:retro` – Facilitate async team retrospectives
+- `/culture:mediate` – AI-facilitated decision resolution for disagreements
+- `/culture:values` – Track team values alignment and detect drift
+- `/culture:report` – Generate culture health reports and snapshots
 
 ## Agents
 
@@ -37,6 +41,8 @@ This plugin reads and writes `culture/` folders in target repos:
 - **Heartbeat**: every ~2h via cron, scans GitHub activity and delivers coaching nudges
 - **Signal**: optional per-person coaching channel via `signal-cli`
 - **Post-session**: analyzes work sessions for culture patterns (stored in Claude memory, private)
+- **Values drift**: automatic detection when behavior diverges from stated values
+- **Weekly snapshots**: culture health reports generated in `culture/snapshots/`
 
 ## Language
 
