@@ -10,24 +10,34 @@
 # Usage:
 #   ./tests/integration-test.sh
 #
+# Modes:
+#   ./tests/integration-test.sh          # Local mode (default) — no GitHub needed
+#   ./tests/integration-test.sh --remote # Remote mode — uses GitHub repo
+#
 # Prerequisites:
 #   - claude CLI installed and authenticated
-#   - gh CLI installed and authenticated
 #   - Culture Engine plugin installed (claude plugins add /path/to/culture)
-#   - Member of performance-dudes GitHub org
+#   - Remote mode only: gh CLI, member of performance-dudes GitHub org
 #
 # ============================================================================
 
 set -euo pipefail
 
 # --- Config ---
-GITHUB_ORG="performance-dudes"
-TEST_REPO="culture-test"
-REMOTE="git@github.com:${GITHUB_ORG}/${TEST_REPO}.git"
+MODE="local"
+[ "${1:-}" = "--remote" ] && MODE="remote"
+
 PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 WORK_DIR="/tmp/culture-engine-test"
+BARE_DIR="${WORK_DIR}/origin.git"
 FELIX_DIR="${WORK_DIR}/felix"
 REZA_DIR="${WORK_DIR}/reza"
+
+if [ "$MODE" = "remote" ]; then
+    GITHUB_ORG="performance-dudes"
+    TEST_REPO="culture-test"
+    REMOTE="git@github.com:${GITHUB_ORG}/${TEST_REPO}.git"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -123,38 +133,59 @@ assert() {
 # SETUP
 # ============================================================================
 
-header "Setup: Preparing test environment"
+header "Setup: Preparing test environment (${MODE} mode)"
 
 step "Cleaning previous test data"
 rm -rf "${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
 
-step "Resetting remote repo (${GITHUB_ORG}/${TEST_REPO})"
-# Clone, wipe, push empty
-git clone "${REMOTE}" "${WORK_DIR}/_setup" 2>/dev/null || {
-    mkdir -p "${WORK_DIR}/_setup"
+if [ "$MODE" = "remote" ]; then
+    step "Resetting remote repo (${GITHUB_ORG}/${TEST_REPO})"
+    git clone "${REMOTE}" "${WORK_DIR}/_setup" 2>/dev/null || {
+        mkdir -p "${WORK_DIR}/_setup"
+        cd "${WORK_DIR}/_setup"
+        git init
+        git remote add origin "${REMOTE}"
+    }
     cd "${WORK_DIR}/_setup"
-    git init
-    git remote add origin "${REMOTE}"
-}
-cd "${WORK_DIR}/_setup"
-# Remove all files, create fresh
-git checkout -B main 2>/dev/null || true
-find . -not -path './.git/*' -not -name '.git' -delete 2>/dev/null || true
-echo "# Culture Test Project" > README.md
-echo "A test project for demonstrating the Culture Engine plugin." >> README.md
-git add -A
-git commit -m "chore: reset test repo" --allow-empty 2>/dev/null || git commit -m "chore: reset test repo"
-git push -u origin main --force 2>/dev/null
-cd "${WORK_DIR}"
-rm -rf "${WORK_DIR}/_setup"
+    git checkout -B main 2>/dev/null || true
+    find . -not -path './.git/*' -not -name '.git' -delete 2>/dev/null || true
+    echo "# Culture Test Project" > README.md
+    echo "A test project for demonstrating the Culture Engine plugin." >> README.md
+    git add -A
+    git commit -m "chore: reset test repo" --allow-empty 2>/dev/null || git commit -m "chore: reset test repo"
+    git push -u origin main --force 2>/dev/null
+    cd "${WORK_DIR}"
+    rm -rf "${WORK_DIR}/_setup"
 
-step "Cloning as Felix"
-git clone "${REMOTE}" "${FELIX_DIR}" 2>/dev/null
+    step "Cloning as Felix"
+    git clone "${REMOTE}" "${FELIX_DIR}" 2>/dev/null
+
+    step "Cloning as Reza"
+    git clone "${REMOTE}" "${REZA_DIR}" 2>/dev/null
+else
+    step "Creating local bare repo (simulated remote)"
+    git init --bare "${BARE_DIR}" 2>/dev/null
+
+    step "Initializing project"
+    git clone "${BARE_DIR}" "${WORK_DIR}/_setup" 2>/dev/null
+    cd "${WORK_DIR}/_setup"
+    echo "# Culture Test Project" > README.md
+    echo "A test project for demonstrating the Culture Engine plugin." >> README.md
+    git add -A
+    git commit -m "chore: init test repo"
+    git push -u origin main 2>/dev/null
+    cd "${WORK_DIR}"
+    rm -rf "${WORK_DIR}/_setup"
+
+    step "Cloning as Felix"
+    git clone "${BARE_DIR}" "${FELIX_DIR}" 2>/dev/null
+
+    step "Cloning as Reza"
+    git clone "${BARE_DIR}" "${REZA_DIR}" 2>/dev/null
+fi
+
 (cd "${FELIX_DIR}" && git config user.name "Felix" && git config user.email "felix@test.local")
-
-step "Cloning as Reza"
-git clone "${REMOTE}" "${REZA_DIR}" 2>/dev/null
 (cd "${REZA_DIR}" && git config user.name "Reza" && git config user.email "reza@test.local")
 
 echo -e "\n${GREEN}Setup complete.${NC}\n"
@@ -414,7 +445,11 @@ if [ "$FAIL" -eq 0 ]; then
     echo -e "  • Session logging with commit integration"
     echo -e "  • Culture health reporting"
     echo ""
-    echo -e "  Test repo: https://github.com/${GITHUB_ORG}/${TEST_REPO}"
+    if [ "$MODE" = "remote" ]; then
+        echo -e "  Test repo: https://github.com/${GITHUB_ORG}/${TEST_REPO}"
+    else
+        echo -e "  Test repo: ${BARE_DIR} (local)"
+    fi
 else
     echo -e "${RED}${BOLD}  Some tests failed. Check output above.${NC}"
 fi
