@@ -83,27 +83,9 @@ These hooks save **metadata markers**, not full transcripts. Claude Code stores 
 
 For full transcript access during heartbeat analysis, the heartbeat can reference Claude Code's internal transcript storage using the session_id.
 
-## Auto-Push Logs with Commits
+## Auto-Include Logs in Commits
 
-To ensure culture/logs are included when pushing code, add a git pre-push hook to repos with culture enabled:
-
-### Option A: Git Hook (recommended for teams)
-
-Add to `.git/hooks/pre-push` (or via a shared hooks directory):
-
-```bash
-#!/bin/bash
-# Auto-stage culture/logs before push
-CULTURE_LOGS="$(git rev-parse --show-toplevel)/culture/logs"
-if [ -d "$CULTURE_LOGS" ] && [ "$(ls -A "$CULTURE_LOGS" 2>/dev/null)" ]; then
-    git add culture/logs/
-    git diff --cached --quiet culture/logs/ || git commit -m "culture: update session logs"
-fi
-```
-
-### Option B: Claude Code Hook
-
-Add a `PreToolUse` hook that fires before `git push`:
+Claude Code `PreToolUse` hook that auto-stages `culture/logs/` before any `git commit`:
 
 ```json
 {
@@ -114,9 +96,9 @@ Add a `PreToolUse` hook that fires before `git push`:
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(git push:*)",
-            "command": "LOGS_DIR=\"$(git rev-parse --show-toplevel)/culture/logs\"; if [ -d \"$LOGS_DIR\" ] && [ \"$(ls -A \"$LOGS_DIR\" 2>/dev/null)\" ]; then git add \"$LOGS_DIR/\" && git diff --cached --quiet \"$LOGS_DIR/\" || git commit -m 'culture: update session logs'; fi",
-            "timeout": 15,
+            "if": "Bash(git commit:*)",
+            "command": "LOGS_DIR=\"$(git rev-parse --show-toplevel)/culture/logs\"; if [ -d \"$LOGS_DIR\" ] && [ \"$(ls -A \"$LOGS_DIR\" 2>/dev/null)\" ]; then git add \"$LOGS_DIR/\"; fi",
+            "timeout": 5,
             "statusMessage": "Staging culture session logs..."
           }
         ]
@@ -125,6 +107,8 @@ Add a `PreToolUse` hook that fires before `git push`:
   }
 }
 ```
+
+This fires right before Claude runs `git commit`, staging any new session logs into the same commit. No extra commit, no separate push step — logs ride along with normal work.
 
 ## `/clear` Safety Net
 
