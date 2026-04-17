@@ -2,6 +2,35 @@
 
 A Claude Code plugin that makes team culture visible, measurable, and improvable — through AI-moderated feedback, coaching, and collaboration.
 
+## Installation
+
+Requires the [base workspace repo](https://github.com/performance-dudes/performance-dudes) as parent directory.
+
+```bash
+cd performance-dudes          # base workspace
+git clone git@github.com:performance-dudes/culture.git
+claude plugin marketplace add ./culture
+claude plugin install culture
+```
+
+Run `/reload-plugins` to activate. All 10 skills (`/culture:init`, `/culture:feedback`, etc.) are then available in any Claude Code session.
+
+To add the marketplace permanently so new clones get it automatically, add to `.claude/settings.json`:
+
+```json
+{
+  "pluginMarketplaces": [
+    { "type": "local", "path": "./culture" }
+  ]
+}
+```
+
+## Adding a skill
+
+1. Create `skills/<name>/SKILL.md` with `name` and `description` frontmatter
+2. Reference docs go in `skills/<name>/references/`
+3. Commit, push, `/reload-plugins`
+
 ## Why
 
 Culture is the operating system of a team. It determines how decisions get made, how conflicts resolve, how newcomers feel, and whether people grow or stagnate. But in most teams, culture is invisible — it lives in unspoken norms, accumulated habits, and gut feelings that never get examined.
