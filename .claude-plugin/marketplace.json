@@ -1,0 +1,17 @@
+{
+  "name": "culture",
+  "owner": {
+    "name": "Performance Dudes"
+  },
+  "plugins": [
+    {
+      "name": "culture",
+      "source": {
+        "source": "github",
+        "repo": "performance-dudes/culture"
+      },
+      "description": "AI-moderated team culture: feedback, coaching, reflection, and growth — stored in git",
+      "version": "1.0.0"
+    }
+  ]
+}

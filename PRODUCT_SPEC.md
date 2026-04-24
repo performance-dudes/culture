@@ -304,10 +304,152 @@ The system works if over time it increases:
 - **Contributor experience** — external contributors feel welcomed and supported
 - **Institutional memory** — decisions and their reasoning are preserved and accessible
 
+## Project Isolation
+
+### The Problem
+
+The plugin is installed at **user scope** (global), but culture is **per-project**. A user contributing to multiple GitHub orgs works with completely separate teams, values, norms, and feedback histories. Culture data must never leak between projects.
+
+Example: Felix contributes to org A (5 repos) and org B (8 repos). These are two separate cultures with different teams. Observations, coaching, feedback, and private reflections from org A must never influence behavior or content in org B.
+
+### Isolation Model
+
+Culture is scoped by **GitHub org** (detected from `git remote -v`):
+
+```
+github.com/org-a/repo-1  →  culture scope: org-a
+github.com/org-a/repo-2  →  culture scope: org-a
+github.com/org-b/repo-3  →  culture scope: org-b
+```
+
+| Layer | Isolation mechanism |
+|---|---|
+| **Shared state** (`culture/` in git) | Already isolated — each repo has its own `culture/`, each org has its own org repo |
+| **Private reflections** (Claude memory) | Namespaced by org: `culture/org-a/reflections`, `culture/org-b/reflections` |
+| **Coaching context** | Claude reads ONLY the current org's `culture/` when coaching. Never cross-references. |
+| **Observer data** | `gh` CLI scoped to current repo. No cross-org GitHub API calls. |
+| **Signal messages** | Tagged with org context so the human knows which project a nudge relates to |
+| **Heartbeat** | Runs per-repo. Scoped to current repo's org. |
+
+### Detection
+
+On every session start, Claude determines the culture scope:
+
+```bash
+# Extract org from git remote
+git remote get-url origin | sed 's|.*github.com[:/]\([^/]*\)/.*|\1|'
+```
+
+If no git remote (local-only repo): scope is the repo directory name. If no git repo: culture features are disabled.
+
+### Cross-Org Rules
+
+- **Never** use observations from org A when coaching in org B
+- **Never** reference org A's values when checking drift in org B
+- **Never** include org A feedback in org B's reports or snapshots
+- **Never** aggregate across orgs (org-wide reports are per-org, not per-user-across-orgs)
+- Private reflections from org A are invisible when working in org B
+- If the user explicitly asks "how do I handle X differently in my other project?" — Claude may reference that it has context from another org, but must ask permission before sharing specifics
+
+### Memory Namespacing
+
+Claude memory entries related to culture are prefixed with the org scope:
+
+```
+[culture:org-a] Felix tends to write terse PR descriptions
+[culture:org-b] Felix adapts well to async communication style here
+```
+
+This ensures coaching stays contextual. What's true in one team may not apply in another.
+
+## Ambient Mode
+
+### The Problem
+
+The plugin's skills are pull-based — users must explicitly invoke `/culture:feedback`, `/culture:observe`, etc. But the vision is push-based: Claude proactively observes, coaches, and integrates culture into the user's normal workflow without requiring any commands.
+
+### How Ambient Mode Works
+
+When the Culture Engine plugin is installed and `culture/` exists in the current repo, Claude operates as `@coach` by default:
+
+1. **Session start**: Claude reads `culture/values.md`, recent feedback, and last snapshot for the current org
+2. **During work**: Claude observes communication patterns, PR tone, decision-making style
+3. **At natural moments**: Claude surfaces coaching nudges (1-2 sentences, non-intrusive)
+4. **PR creation**: Claude checks if the PR relates to any recent feedback themes or team values, and suggests culture context if relevant
+5. **PR review**: Claude considers team norms when reviewing code (not just code quality, but collaboration quality)
+6. **Session end**: Claude notes observations in memory (namespaced to org)
+
+### Activation
+
+Users opt in with a simple init command:
+
+```
+/culture:init
+```
+
+This does:
+1. Detects the current repo and GitHub org
+2. Creates `culture/` folder if it doesn't exist (from templates)
+3. Asks the user to fill in initial values in `culture/values.md`
+4. Enables ambient mode for this org in Claude memory
+5. Optionally sets up Signal (`/culture:signal-setup`)
+6. Optionally starts heartbeat scheduling
+
+After init, ambient mode is active in every session within that org's repos. No further commands needed.
+
+### Deactivation
+
+```
+/culture:init off
+```
+
+Disables ambient mode. Skills remain available for explicit invocation.
+
+### What Ambient Mode Does NOT Do
+
+- Does not auto-commit to `culture/` without the user's awareness
+- Does not interrupt flow — waits for natural pauses
+- Does not observe repos where `culture/` doesn't exist
+- Does not cross org boundaries
+
+## Scheduling
+
+### Heartbeat Options
+
+The heartbeat (every ~2h) can be configured in multiple ways depending on the user's setup:
+
+| Method | Durability | Setup |
+|---|---|---|
+| **Claude Code cron** (`CronCreate`) | Session-only, 7-day expiry | `/culture:init` sets it up automatically |
+| **Claude Code schedule** (`RemoteTrigger`) | Durable, survives restarts | For always-on culture monitoring |
+| **System cron** | Durable, system-level | For users who want full control |
+
+### Recommended: Durable Schedule
+
+For persistent monitoring, use Claude Code's durable scheduling:
+
+```
+CronCreate with durable: true
+cron: "17 */2 * * *"
+prompt: "Run /culture:heartbeat for the current repo. Stay silent if nothing meaningful."
+```
+
+This survives session restarts and runs the heartbeat automatically.
+
+### `/insights` Integration
+
+`/insights` output is consumed as a source on a schedule:
+
+| Frequency | What happens |
+|---|---|
+| **Daily** | `/insights` runs, output parsed for coaching signals, stored in Claude memory (org-namespaced) |
+| **Weekly** | Aggregated insights feed into `/culture:report` |
+
+Scheduling is set up during `/culture:init`. Users choose frequency.
+
 ## Open Questions
 
-- How to handle onboarding — when a new team member joins, how does their Claude catch up on culture context?
 - Conflict escalation — when does Claude flag something for human-to-human conversation instead of moderating itself?
-- Privacy across orgs — if someone contributes to multiple orgs, how are their private reflections scoped?
 - Signal group channels — should there be a team Signal group for shared digests, or keep it strictly 1:1?
 - Retention policy — how long do feedback entries live? Archive strategy?
+- Onboarding — when a new team member runs `/culture:init`, how much history should Claude summarize vs let them discover organically?
